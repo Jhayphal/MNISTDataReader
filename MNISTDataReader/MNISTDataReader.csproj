@@ -46,7 +46,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ExstensionMethods.cs" />
+    <Compile Include="ExtensionMethods.cs" />
     <Compile Include="IDataReader.cs" />
     <Compile Include="ImageDataReader.cs" />
     <Compile Include="LabelDataReader.cs" />

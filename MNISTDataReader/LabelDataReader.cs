@@ -1,94 +1,96 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 
 namespace MNISTDataReader
 {
-    public partial class LabelDataReader : IDataReader<int>, IDisposable
+    public sealed class LabelDataReader : IDataReader<int>, IDisposable
     {
-        public readonly int ItemsCount;
-
-        const int HeaderOffset = 8;
-        const int MagicNumberOffset = 4;
-
-        FileStream stream;
-
-        int currentIteratorIndex = 0;
+        private readonly FileStream stream;
+        private readonly long headerOffset;
 
         public LabelDataReader(string fileName)
         {
             if (string.IsNullOrWhiteSpace(fileName))
-                throw new ArgumentException("Не указан файл");
+            {
+                throw new ArgumentException("Не указан файл.");
+            }
 
             if (!File.Exists(fileName))
-                throw new FileNotFoundException("Файл не найден", fileName);
+            {
+                throw new FileNotFoundException("Файл не найден.", fileName);
+            }
 
             stream = new FileStream(fileName, FileMode.Open, FileAccess.Read);
 
-            stream.Seek(MagicNumberOffset, SeekOrigin.Begin);
-
+            _ = stream.ReadInt32(); // unused data
             ItemsCount = stream.ReadInt32();
+            headerOffset = stream.Position;
         }
+        
+        public void Dispose() => stream?.Dispose();
+        
+        public readonly int ItemsCount;
 
         public IEnumerator<int> GetEnumerator()
         {
-            if (currentIteratorIndex == ItemsCount)
+            if (ItemsCount == 0)
             {
-                currentIteratorIndex = 0;
-
                 yield break;
             }
 
-            ++currentIteratorIndex;
-
-            yield return read();
+            SeekByIndex(0);
+            for (var i = 0; i < ItemsCount; ++i)
+            {
+                yield return Read();
+            }
         }
+        
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         public int Read(int index)
         {
-            seekByIndex(index);
+            SeekByIndex(index);
 
-            return read();
+            return Read();
         }
 
-        public IEnumerable<int> GetScope(int begin, int end)
+        IEnumerable<int> IDataReader<int>.GetScope(int begin, int end)
         {
-            seekByIndex(begin);
+            CheckIndex(end);
+            SeekByIndex(begin);
 
-            checkIndex(end);
-
-            for (int i = begin; i <= end; i++)
-                yield return read();
+            for (var i = begin; i <= end; ++i)
+            {
+                yield return Read();
+            }
         }
 
-        public void Dispose()
-        {
-            stream?.Dispose();
-            stream = null;
-        }
+        private int Read() => stream.ReadByte();
 
-        int read()
-        {
-            return stream.ReadByte();
-        }
-
-        void checkIndex(int index)
+        private void CheckIndex(int index)
         {
             if (index < 0)
+            {
                 throw new ArgumentOutOfRangeException();
+            }
 
             if (index >= ItemsCount)
+            {
                 throw new ArgumentOutOfRangeException();
+            }
         }
 
-        void seekByIndex(int index)
+        private void SeekByIndex(int index)
         {
-            checkIndex(index);
+            CheckIndex(index);
 
-            var offset = HeaderOffset + index;
-
+            var offset = headerOffset + index;
             if (stream.Position != offset)
+            {
                 stream.Seek(offset, SeekOrigin.Begin);
+            }
         }
     }
 }
